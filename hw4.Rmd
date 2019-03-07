@@ -1,0 +1,83 @@
+---
+title: "hw4"
+author: "Danny Nguyen"
+date: "March 7, 2019"
+output: html_document
+---
+
+```{r}
+
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+
+```
+# 1. Get a frequency breakdown of the number of chicks, their average weight and the standard deviation of the weights in each of the diets at the start of the study. Store the resulting data frame in a variable named weight0 and print.
+```{r}
+
+weight0 <- ChickWeight %>% group_by(Diet) %>% summarize(events = n(), mean_wei = mean(weight, na.rm = TRUE), wei_std_dev = sd(weight, na.rm = TRUE))
+
+print(weight0)
+
+```
+
+# 2. Each chick should have twelve weight measurements. Use the dplyr package to identify how many measurements are there for each chick. Extract a subset of the data for all chicks with complete information, name the data set complete, and print the first 3 rows. (Hint: you might want to use mutate to introduce a helper variable consisting of the number of observations)
+```{r}
+
+complete <- ChickWeight %>% group_by(Chick) %>% mutate(num_fed = n()) %>% filter(num_fed == 12) %>% select(-num_fed)
+
+print(head(tbl_df(complete), 3))
+
+```
+
+# 3. In the complete data set introduce a new variable that measures the current weight difference compared to day 0. Name this variable  weightgain and print the first 3 rows of the new data frame.
+```{r}
+
+complete <- complete %>% group_by(Chick) %>%  mutate(dif = (weight - lag(weight, default = weight[1])), weightgain = cumsum(dif)) %>% select(-dif)
+
+print(head(tbl_df(complete), 3))
+
+```
+
+# 4. Use {ggplot2} to create side-by-side boxplots of weightgain by Diet for day 21. Describe the relationship in 2-3 sentences. Change the order of the categories in the Diet variable such that the boxplots are ordered by median weightgain, and the lower limit of the y axis should be 0.
+Based off of the following boxplots, the least weight gained was by the diet 1 chicks and the most weight gain was by the diet 3 chicks. There was quite a bit of weight gain variability for the diet 2 and diet 4 chicks.
+```{r}
+
+cbox <- complete %>% filter(Time == 21)
+
+ggplot(cbox, aes(x = reorder(Diet, weightgain, func = median), y = weightgain, color = Diet)) + geom_boxplot() + coord_cartesian(ylim = c(0, 400)) + labs(title = "Weight Gain by Diet", x = "Diet", y = "Weight Gain") + theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+# 5. Answer the following question using numerical and graphical summary: Which chick gained the most weight and which gained the least weight? What diets were they on?
+Based on the following table and graph, chick 35 gained the most weight while chick 24 gained the least weight. Chick 35 was on diet 3 while chick 24 was on diet 2.
+```{r}
+
+csum <- complete %>% group_by(Chick, Diet) %>% summarize(tot_gain = max(weightgain)) %>% arrange(tot_gain)
+
+print(tbl_df(csum), n = 50)
+
+ggplot(csum, aes(x = reorder(Chick, -tot_gain), y = tot_gain, fill = Diet)) + geom_bar(stat = "identity") + coord_flip() + labs(title = "Total Weight Gain For Each Chick", x = "Chick" , y = "Total Weight Gain") + theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+# 6. For the chicks with the least and the most weight at time 0, plot their growth trajectories over time. 5 pts of extra credit: Add to the plot the average growth trajectory for all chicks (calculated as the mean weight for each chick at each time). How do the trajectories compare?
+Chick 3 is gaining weight faster than chick 27.
+```{r}
+
+stdate <- complete %>% filter(Time == 0) %>% arrange(weight)
+littchick <- stdate$Chick[which.min(stdate$weight)]
+biggchick <- stdate$Chick[which.max(stdate$weight)]
+scattchick <- complete %>% filter(Chick == littchick | Chick == biggchick)
+
+ggplot(scattchick, aes(x = Time, y = weight, shape = Diet, color = Chick)) + geom_point(size = 4) + geom_smooth(method = lm, se = FALSE, fullrange = TRUE) + labs(title = "Weight Gain of Littlest and Biggest Chicks Over Time", y = "Weight") + theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+# 7. What else do you find interesting in the dataset? Show your exploratory analysis.
+After looking back at the graphs from questions 4 and 5, I wanted to take a look at the distribution of plot points of all the chicks in each diet group based on weight gain over the span of time. While the distributions look very similar, the data spread varies a lot towards the end. Also it appears that Diet 2 and 4 have the widest and narrowest spread towards the end of the graphs. 
+```{r}
+ggplot(complete, aes(x = Time, y = weightgain)) + geom_point() + facet_wrap(~Diet) + labs(title = "Diet", y = "Weight Gain") + theme(plot.title = element_text(hjust = 0.5))
+
+```
+
